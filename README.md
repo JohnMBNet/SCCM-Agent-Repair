@@ -2,7 +2,7 @@
 
 # SCCM Agent Diagnostic & Repair Tool
 
-<img src="images/logo.png" alt="SCCM Agent Repair Logo" width="120" height="120">
+<img src="logo.png" alt="SCCM Agent Repair Logo" width="120" height="120">
 
 ### A Comprehensive PowerShell Tool for SCCM Client Troubleshooting
 
