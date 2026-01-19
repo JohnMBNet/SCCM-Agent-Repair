@@ -15,7 +15,7 @@
 
 **Diagnose, troubleshoot, and repair SCCM/ConfigMgr client agents with ease.**
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Diagnostics](#-diagnostic-tests) • [Repair Options](#-repair-options) • [Troubleshooting](#-troubleshooting)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Diagnostics](#-diagnostic-tests) • [Repair Options](#-repair-options) • [Server Script](#-server-side-script-get-inactivedevices) • [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -293,11 +293,82 @@ Full client reinstallation process:
 
 ---
 
+## 📋 Server-Side Script: Get-InactiveDevices
+
+This repository also includes a script to run on the **SCCM Server** to identify devices that need attention.
+
+### Purpose
+
+Exports a CSV of devices where:
+- User logged on **within the last 7 days** (device is in use)
+- SCCM communication is **14+ days old** (client not reporting)
+- Client activity shows as **Inactive**
+
+These are devices that are actively being used but have broken SCCM clients - prime candidates for the repair script.
+
+### Usage
+
+Run from the **SCCM PowerShell console** on your site server:
+
+```powershell
+.\Get-InactiveDevices.ps1
+```
+
+### Output
+
+Creates `C:\Temp\InactiveDevices_YYYYMMDD.csv` with columns:
+
+| Column | Description |
+|--------|-------------|
+| Name | Device hostname |
+| LastLogonUserName | Last user to log on |
+| LastLogonTimestamp | When user last logged on |
+| CNLastOnlineTime | Last SCCM communication |
+| DaysSinceComm | Calculated days since communication |
+| ClientActiveStatus | 0 = Inactive, 1 = Active |
+| ClientVersion | Installed SCCM client version |
+| OperatingSystemNameandVersion | OS details |
+
+### Script
+
+```powershell
+# Get-InactiveDevices.ps1
+# Exports devices that logged on recently but haven't communicated with SCCM
+
+# Define date thresholds
+$LogonThreshold = (Get-Date).AddDays(-7)    # Logged on within last 7 days
+$CommThreshold = 14                          # Days since last SCCM communication
+
+# Query all devices from SCCM with required properties
+$Devices = Get-CMDevice -Fast | Where-Object {
+    $_.LastLogonTimestamp -and $_.LastLogonTimestamp -ge $LogonThreshold -and
+    $_.ClientActiveStatus -eq 0 -and
+    ($_.CNLastOnlineTime -eq $null -or ((Get-Date) - $_.CNLastOnlineTime).Days -ge $CommThreshold)
+}
+
+# Select relevant columns and export to CSV
+$Devices | Select-Object Name, LastLogonUserName, LastLogonTimestamp, CNLastOnlineTime,
+    @{N='DaysSinceComm';E={if($_.CNLastOnlineTime){((Get-Date)-$_.CNLastOnlineTime).Days}else{'Never'}}},
+    ClientActiveStatus, ClientVersion, OperatingSystemNameandVersion |
+Export-Csv -Path "C:\Temp\InactiveDevices_$(Get-Date -Format 'yyyyMMdd').csv" -NoTypeInformation
+
+Write-Host "Exported $($Devices.Count) inactive devices to C:\Temp"
+```
+
+### Requirements
+
+- Must be run on the SCCM Site Server
+- Requires SCCM PowerShell module (auto-loaded in SCCM console)
+- `C:\Temp` folder must exist
+
+---
+
 ## 📁 Project Structure
 
 ```
 SCCM-Agent-Repair/
-├── 📄 SCCM-Agent-Diagnostic.ps1    # Main diagnostic and repair script
+├── 📄 SCCM-Agent-Diagnostic.ps1    # Client-side diagnostic and repair script
+├── 📄 Get-InactiveDevices.ps1      # Server-side script to find broken clients
 ├── 📁 images/
 │   └── 🖼️ logo.png                  # Project logo
 ├── 📄 LICENSE                       # MIT License
