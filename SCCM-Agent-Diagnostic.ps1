@@ -256,7 +256,11 @@ function Discover-SCCMServer {
         $regInfo = Get-SCCMServerFromRegistry
         if ($regInfo.ManagementPoint -or $regInfo.AssignedSite) {
             $discoveredInfo.ManagementPoint = $regInfo.ManagementPoint
-            $discoveredInfo.SiteCode = $regInfo.SiteCode ?? $regInfo.AssignedSite
+            if ($regInfo.SiteCode) {
+                $discoveredInfo.SiteCode = $regInfo.SiteCode
+            } else {
+                $discoveredInfo.SiteCode = $regInfo.AssignedSite
+            }
             $discoveredInfo.DiscoveryMethod = "Registry"
             Write-ColorOutput " Found!" "Green"
         } else {
